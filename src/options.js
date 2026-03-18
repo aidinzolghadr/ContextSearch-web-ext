@@ -1308,18 +1308,26 @@ function buildLayoutEditors() {
 }
 
 // generate new search.json.mozlz4 
-$("#replaceMozlz4FileButton").addEventListener('change', ev => {
+$("#replaceMozlz4FileButton").addEventListener('change', async ev => {
 	
 	let searchEngines = [];
 	let file = ev.target.files[0];
-	
+
+	// await new Promise(r => {
+	// 		let result = cacheIcons();
+	// 		result.oncomplete = r;
+	// 		result.cache();
+	// });
+
 	// create backup with timestamp
 	exportFile(file, "search.json.mozlz4_" + Date.now() );
 	
 	readMozlz4File(file, text => { // on success
 
 		// parse the mozlz4 JSON into an object
-		var json = JSON.parse(text);	
+		var json = JSON.parse(text);
+
+		let version = json.version || 0;
 
 		let nodes = findNodes(userOptions.nodeTree, n => ["searchEngine", "oneClickSearchEngine"].includes(n.type) );
 		
@@ -1327,10 +1335,10 @@ $("#replaceMozlz4FileButton").addEventListener('change', ev => {
 		
 		let ses = [];
 
-		nodes.forEach( n => {
+		nodes.forEach( (n, i) => {
 			if ( n.type === "searchEngine" ) {
 				let se = getNodeById( n.id );
-				if ( se ) ses.push(CS2FF(se));
+				if ( se ) ses.push(CS2FF(se, version));
 			}
 			
 			if ( n.type === "oneClickSearchEngine" ) {
@@ -1339,47 +1347,86 @@ $("#replaceMozlz4FileButton").addEventListener('change', ev => {
 			}
 		});
 
-		for ( let i in ses) ses[i]._metaData.order = i;
-		
-		// console.log(ses);
+		ses = ses.reverse();
 
+		for ( let i in ses) ses[i]._metaData.order = i + 10;
+		
 		json.engines = ses;
+
+		// console.log(json);
 
 		exportSearchJsonMozLz4(JSON.stringify(json));
 		
 	});
 	
-	function CS2FF(se) {
+	function CS2FF(se, version = 0) {
 
-		let ff = {
-			_name: se.title,
-			_loadPath: "[other]addEngineWithDetails",
-			description: se.title,
-			__searchForm: se.searchForm,
-			_iconURL: se.icon,
-			_metaData: {
-				alias: null,
-				order: null
-			},
-			_urls: [
-				{
-					method: se.method,
-					params: se.params,
-					rels: [],
-					template: se.template
-				}
-			],
-			_isAppProvided: false,
-			_orderHint: null,
-			_telemetryId: null,
-			_updateInterval: null,
-			_updateURL: null,
-			_iconUpdateURL: null,
-			_filePath: null,
-			_extensionID: null,
-			_locale: null,
-			_definedAliases: [],
-			queryCharset: se.queryCharset.toLowerCase()
+		let ff = {};
+
+		// new version
+		if ( version >= 13 ) {
+			ff = {
+	      "id": se.id,
+	      "_name": se.title,
+	      "_loadPath": "[other]addEngineWithDetails",
+	      "_iconMapObj": {
+	        "32": se.iconCache
+	      },
+	      "_metaData": {
+	        "alias": null,
+	        "order": null,
+	        "hideOneOffButton": se.hidden || false
+	      },
+	      "_urls": [
+	        {
+	         	"method": se.method,
+						"params": se.params,
+						"rels": [],
+						"template": se.template
+					}
+	      ],
+	      "_filePath": null,
+	      "_definedAliases": [],
+	      "queryCharset": se.queryCharset.toLowerCase(),
+	      "_updateInterval": null,
+	      "_updateURL": null
+    	}
+		}
+
+		else {
+			ff = {
+				_name: se.title,
+				_loadPath: "[other]addEngineWithDetails",
+				description: se.title,
+				__searchForm: se.searchForm,
+				_iconURL: se.icon,
+				_iconMapObj: {
+	        "32": se.iconCache || null
+	      },
+				_metaData: {
+					alias: null,
+					order: null
+				},
+				_urls: [
+					{
+						method: se.method,
+						params: se.params,
+						rels: [],
+						template: se.template
+					}
+				],
+				_isAppProvided: false,
+				_orderHint: null,
+				_telemetryId: null,
+				_updateInterval: null,
+				_updateURL: null,
+				_iconUpdateURL: null,
+				_filePath: null,
+				_extensionID: null,
+				_locale: null,
+				_definedAliases: [],
+				queryCharset: se.queryCharset.toLowerCase()
+			}
 		}
 		
 		return ff;
